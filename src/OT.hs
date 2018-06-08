@@ -19,8 +19,7 @@ import qualified Data.ByteArray             as BA
 import qualified Data.ByteString            as BS
 import Control.Monad.Fail
 
--- | Protocol setup. It's called only once, independently of
--- the number of OT messages.
+-- | Setup: Only once, independently of the number of OT messages *m*.
 setup :: (MonadRandom m, MonadFail m) => ECC.Curve -> m (Integer, ECC.Point, ECC.Point)
 setup curve = do
   -- 1. Sender samples y <- Zp and computes S = yB and T = yS
@@ -34,36 +33,36 @@ setup curve = do
   pure (sPrivKey, sPubKey, t)
 
 
--- In parallel for all OT messages.
+-- | Choose: In parallel for all OT messages.
 choose :: (MonadRandom m, MonadFail m) => ECC.Curve -> Integer -> ECC.Point -> m (Integer, ECC.Point)
 choose curve n sPubKey = do
-  -- 1. Reciever samples x <- Zp and computes Response
+  -- 1. Receiver samples x <- Zp and computes Response
   c <- generateBetween 0 (n - 1)
-  -- Sender creates public and private keys
   rPrivKey <- ECDSA.private_d . snd <$> ECC.generate curve
 
   let cS = ECC.pointMul curve c sPubKey
   let xB = ECC.pointBaseMul curve rPrivKey
   let response = ECC.pointAdd curve cS xB
-  --
+
   -- 2. Fail if the response is not a valid point in the curve
   unless (ECC.isPointValid curve response) $
     fail "Invalid response from verifier"
 
   pure (rPrivKey, response)
 
-deriveSenderKeys :: ECC.Curve -> Integer -> (Integer, ECC.Point) -> ECC.Point -> ECC.Point -> [Integer]
-deriveSenderKeys curve n (sPrivKey, sPubKey) response t = deriveSenderKey <$> [0..n-1]
+-- | Sender's key derivation from his private key and receiver's response
+-- In parallel for all OT messages
+deriveSenderKeys :: ECC.Curve -> Integer -> Integer -> ECC.Point -> ECC.Point -> [Integer]
+deriveSenderKeys curve n sPrivKey response t = deriveSenderKey <$> [0..n-1]
  where
     deriveSenderKey j = hashPoint curve (ECC.pointAdd curve yR (ECC.pointNegate curve (jT j)))
     yR = ECC.pointMul curve sPrivKey response
     jT j = ECC.pointMul curve j t
 
+-- | Receiver's key derivation from his private key and sender's public key
+-- In parallel for all OT messages
 deriveReceiverKey :: ECC.Curve -> Integer -> ECC.Point -> Integer
-deriveReceiverKey curve x sPubKey = hashPoint curve (ECC.pointMul curve x sPubKey)
-
-secp256k1Curve :: ECC.Curve
-secp256k1Curve = ECC.getCurveByName ECC.SEC_p256k1
+deriveReceiverKey curve rPrivKey sPubKey = hashPoint curve (ECC.pointMul curve rPrivKey sPubKey)
 
 hashPoint :: ECC.Curve -> ECC.Point -> Integer
 hashPoint curve ECC.PointO      = oracle curve ""

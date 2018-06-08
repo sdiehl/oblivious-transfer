@@ -31,7 +31,7 @@ testOT curve n = monadicIO $ do
 
   (rPrivKey, response) <- liftIO $ OT.choose curve n sPubKey
 
-  let senderKeys = OT.deriveSenderKeys curve n (sPrivKey, sPubKey) response t
+  let senderKeys = OT.deriveSenderKeys curve n sPrivKey response t
   let receiverKey = OT.deriveReceiverKey curve rPrivKey sPubKey
 
   pure $ receiverKey `elem` senderKeys
