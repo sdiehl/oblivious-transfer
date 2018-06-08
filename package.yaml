@@ -68,7 +68,7 @@ library:
 
 tests:
   oblivious-transfer-test:
-    main:                Spec.hs
+    main:                Driver.hs
     source-dirs:         test
     ghc-options:
     - -threaded
@@ -76,3 +76,14 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - oblivious-transfer
+    - QuickCheck
+    - tasty
+    - tasty-discover
+    - tasty-hunit
+    - tasty-quickcheck
+    default-extensions:
+    - LambdaCase
+    - RecordWildCards
+    - OverloadedStrings
+    - NoImplicitPrelude
+    - FlexibleInstances

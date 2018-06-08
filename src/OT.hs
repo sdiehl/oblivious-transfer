@@ -1,6 +1,11 @@
-module OT where
+module OT
+( setup
+, choose
+, deriveSenderKeys
+, deriveReceiverKey
+) where
 
-import Protolude hiding (hash, elem)
+import Protolude hiding (hash)
 
 import           Crypto.Hash
 import           Crypto.Random.Types (MonadRandom)
@@ -13,31 +18,11 @@ import           Crypto.Number.Serialize    (os2ip)
 import qualified Data.ByteArray             as BA
 import qualified Data.ByteString            as BS
 import Control.Monad.Fail
-import Data.List (elem)
 
--- test 1 out of n OT protocol
-testOT :: ECC.Curve -> Integer -> IO Integer
-testOT curve n = do
-
-  -- TODO: Leaking only privKey here for testing purposes
-  (sPrivKey, sPubKey, t) <- setup curve n
-
-  response <- choose curve n sPubKey
-
-  let senderKeys = deriveSenderKeys curve n (sPrivKey, sPubKey) response t
-  let verifierKey = deriveVerifierKey curve n sPubKey response
-
-  unless (verifierKey `elem` senderKeys) $
-    fail "Unsuccessful key agreement"
-
-  pure verifierKey
-
-setup :: (MonadRandom m, MonadFail m) => ECC.Curve -> Integer -> m (Integer, ECC.Point, ECC.Point)
-setup curve n = do
+setup :: (MonadRandom m, MonadFail m) => ECC.Curve -> m (Integer, ECC.Point, ECC.Point)
+setup curve = do
   -- 1. Sender samples y <- Zp and computes S = yB and T = yS
-  (pubKey, privKey) <- ECC.generate curve
-  let sPrivKey = ECDSA.private_d privKey
-  let sPubKey = ECDSA.public_q pubKey
+  (sPubKey, sPrivKey) <- bimap ECDSA.public_q ECDSA.private_d <$> ECC.generate curve
   let t = ECC.pointMul curve sPrivKey sPubKey
 
   -- 2. S sends S to R, who aborts if S doesn't belong to G
@@ -47,24 +32,23 @@ setup curve n = do
   pure (sPrivKey, sPubKey, t)
 
 
-choose :: (MonadRandom m, MonadFail m) => ECC.Curve -> Integer -> ECC.Point -> m ECC.Point
+-- In parallel for all i in [m]
+choose :: ECC.Curve -> Integer -> ECC.Point -> IO (Integer, ECC.Point)
 choose curve n sPubKey = do
-  -- In parallel for all i in [m]
   -- 1. Reciever samples x <- Zp and computes Response
-  c <- generateBetween 0 n
+  c <- generateBetween 0 (n - 1)
   -- Sender creates public and private keys
-  (pubKey, privKey) <- ECC.generate curve
-  let x = ECDSA.private_d privKey
+  rPrivKey <- ECDSA.private_d . snd <$> ECC.generate curve
 
   let cS = ECC.pointMul curve c sPubKey
-  let xB = ECDSA.public_q pubKey
+  let xB = ECC.pointBaseMul curve rPrivKey
   let response = ECC.pointAdd curve cS xB
   --
   -- 2. Fail if the response is not a valid point in the curve
   unless (ECC.isPointValid curve response) $
     fail "Invalid response from verifier"
 
-  pure response
+  pure (rPrivKey, response)
 
 deriveSenderKeys :: ECC.Curve -> Integer -> (Integer, ECC.Point) -> ECC.Point -> ECC.Point -> [Integer]
 deriveSenderKeys curve n (sPrivKey, sPubKey) response t = deriveSenderKey <$> [0..n-1]
@@ -73,8 +57,8 @@ deriveSenderKeys curve n (sPrivKey, sPubKey) response t = deriveSenderKey <$> [0
     yR = ECC.pointMul curve sPrivKey response
     jT j = ECC.pointMul curve j t
 
-deriveVerifierKey :: ECC.Curve -> Integer -> ECC.Point -> ECC.Point -> Integer
-deriveVerifierKey curve x sPubKey response = hashPoint curve (ECC.pointMul curve x sPubKey)
+deriveReceiverKey :: ECC.Curve -> Integer -> ECC.Point -> Integer
+deriveReceiverKey curve x sPubKey = hashPoint curve (ECC.pointMul curve x sPubKey)
 
 secp256k1Curve :: ECC.Curve
 secp256k1Curve = ECC.getCurveByName ECC.SEC_p256k1
@@ -83,6 +67,7 @@ hashPoint :: ECC.Curve -> ECC.Point -> Integer
 hashPoint curve ECC.PointO      = oracle curve ""
 hashPoint curve (ECC.Point x y) = oracle curve (show x <> show y)
 
+-- | Outputs unpredictable but deterministic random values
 oracle :: ECC.Curve -> BS.ByteString -> Integer
 oracle curve x = os2ip (sha256 x) `mod` ecc_n
   where
