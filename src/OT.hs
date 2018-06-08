@@ -19,6 +19,8 @@ import qualified Data.ByteArray             as BA
 import qualified Data.ByteString            as BS
 import Control.Monad.Fail
 
+-- | Protocol setup. It's called only once, independently of
+-- the number of OT messages.
 setup :: (MonadRandom m, MonadFail m) => ECC.Curve -> m (Integer, ECC.Point, ECC.Point)
 setup curve = do
   -- 1. Sender samples y <- Zp and computes S = yB and T = yS
@@ -32,8 +34,8 @@ setup curve = do
   pure (sPrivKey, sPubKey, t)
 
 
--- In parallel for all i in [m]
-choose :: ECC.Curve -> Integer -> ECC.Point -> IO (Integer, ECC.Point)
+-- In parallel for all OT messages.
+choose :: (MonadRandom m, MonadFail m) => ECC.Curve -> Integer -> ECC.Point -> m (Integer, ECC.Point)
 choose curve n sPubKey = do
   -- 1. Reciever samples x <- Zp and computes Response
   c <- generateBetween 0 (n - 1)
