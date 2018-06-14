@@ -12,7 +12,7 @@ import           Crypto.Random.Types (MonadRandom)
 import qualified Crypto.PubKey.ECC.Prim     as ECC
 import qualified Crypto.PubKey.ECC.Types    as ECC
 import qualified Crypto.PubKey.ECC.Generate as ECC
-import           Crypto.Number.Generate     (generateBetween)
+import           Crypto.Number.Generate     (generateMax)
 import qualified Crypto.PubKey.ECC.ECDSA    as ECDSA
 import           Crypto.Number.Serialize    (os2ip)
 import qualified Data.ByteArray             as BA
@@ -34,10 +34,10 @@ setup curve = do
 
 
 -- | Choose: In parallel for all OT messages.
-choose :: (MonadRandom m, MonadFail m) => ECC.Curve -> Integer -> ECC.Point -> m (Integer, ECC.Point)
+choose :: (MonadRandom m, MonadFail m) => ECC.Curve -> Integer -> ECC.Point -> m (Integer, ECC.Point, Integer)
 choose curve n sPubKey = do
   -- 1. Receiver samples x <- Zp and computes Response
-  c <- generateBetween 0 (n - 1)
+  c <- generateMax (n - 1)
   rPrivKey <- ECDSA.private_d . snd <$> ECC.generate curve
 
   let cS = ECC.pointMul curve c sPubKey
@@ -48,7 +48,7 @@ choose curve n sPubKey = do
   unless (ECC.isPointValid curve response) $
     fail "Invalid response from verifier"
 
-  pure (rPrivKey, response)
+  pure (rPrivKey, response, c)
 
 -- | Sender's key derivation from his private key and receiver's response
 -- In parallel for all OT messages

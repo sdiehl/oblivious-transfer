@@ -1,11 +1,11 @@
 module TestOT where
 
 import           Protolude
-import           Test.QuickCheck.Monadic
+import           Data.List ((!!))
+import qualified Test.QuickCheck.Monadic as QCM
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
-import           Crypto.Number.Generate     (generateBetween)
 import qualified Crypto.PubKey.ECC.Prim     as ECC
 import qualified Crypto.PubKey.ECC.Types    as ECC
 import qualified Crypto.PubKey.ECC.Generate as ECC
@@ -25,15 +25,15 @@ test_OT = testGroup "1-out-of-N oblivious transfer"
 
 -- test 1 out of n OT protocol
 testOT :: ECC.Curve -> Integer -> Property
-testOT curve n = monadicIO $ do
+testOT curve n = QCM.monadicIO $ do
 
   (sPrivKey, sPubKey, t) <- liftIO $ OT.setup curve
 
-  (rPrivKey, response) <- liftIO $ OT.choose curve n sPubKey
+  (rPrivKey, response, c) <- liftIO $ OT.choose curve n sPubKey
 
   let senderKeys = OT.deriveSenderKeys curve n sPrivKey response t
 
   -- Receiver only gets to know one out of n values. Sender doesn't know which one
   let receiverKey = OT.deriveReceiverKey curve rPrivKey sPubKey
 
-  pure $ receiverKey `elem` senderKeys
+  QCM.assert $ receiverKey == (senderKeys !! fromInteger c)

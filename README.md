@@ -57,6 +57,25 @@ Bob takes his choice _c ∈ Z<sub>n</sub>_, samples _b ∈ Z<sub>p</sub>_ and re
 We can see that the key _k<sub>e</sub> = aR - eT = abG + (c - e)T_. If _e = c_, then _k<sub>c</sub> = abG = bA = k<sub>R</sub>_.
 Therefore, _k<sub>R</sub> = k<sub>c</sub>_ if both parties are honest.
 
+```haskell
+testOT :: ECC.Curve -> Integer -> IO Bool
+testOT curve n = do
+
+  -- Alice sets up the procotol
+  (sPrivKey, sPubKey, t) <- OT.setup curve
+
+  -- Bob picks a choice bit 'c'
+  (rPrivKey, response, c) <- OT.choose curve n sPubKey
+
+  -- Alice computes a set of n keys
+  let senderKeys = OT.deriveSenderKeys curve n sPrivKey response t
+
+  -- Bob only gets to know one out of n keys. Alice doesn't know which one
+  let receiverKey = OT.deriveReceiverKey curve rPrivKey sPubKey
+
+  pure $ receiverKey == (senderKeys !! fromInteger c)
+```
+
 ------------
 
 **References**:
