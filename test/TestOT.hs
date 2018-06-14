@@ -32,6 +32,8 @@ testOT curve n = monadicIO $ do
   (rPrivKey, response) <- liftIO $ OT.choose curve n sPubKey
 
   let senderKeys = OT.deriveSenderKeys curve n sPrivKey response t
+
+  -- Receiver only gets to know one out of n values. Sender doesn't know which one
   let receiverKey = OT.deriveReceiverKey curve rPrivKey sPubKey
 
   pure $ receiverKey `elem` senderKeys
