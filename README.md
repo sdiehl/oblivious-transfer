@@ -10,6 +10,7 @@ The sender doesn't know which pieces of information have been transferred.
 1-out-of-2 OT
 -------------
 
+Oblivious transfer is central to many of the constructions for secure multiparty computation.
 In its most basic form, the sender has two secret messages as inputs, _m<sub>0</sub>_ and _m<sub>1</sub>_; the receiver has a choice bit _c_ as input.
 At the end of the 1-out-of-2 OT protocol, the receiver should only learn message _M<sub>c</sub>_, while the sender should not
 learn the value of the receiver's input _c_.
