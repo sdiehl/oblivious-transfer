@@ -33,7 +33,7 @@ testMOT curve n = QCM.monadicIO $ do
   let m = 20
   (sPrivKey, sPubKey, t) <- liftIO $ OT.setup curve
   choices <- liftIO $OT.mChoose curve n sPubKey m []
-  let (rPrivKeys, responses, cs) = OT.unzip3 choices
+  let (rPrivKeys, responses, cs) = unzip3 choices
   let senderKeys = OT.mDeriveSenderKeys curve n sPrivKey responses t
   let recieverKeys = OT.mDeriveReceiverKeys curve rPrivKeys sPubKey
   QCM.assert True

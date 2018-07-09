@@ -5,7 +5,7 @@ module OT
 , deriveReceiverKey
 , mDeriveSenderKeys
 , mDeriveReceiverKeys
-, unzip3
+--, unzip3
 , mChoose
 ) where
 
@@ -22,7 +22,7 @@ import           Crypto.Number.Serialize    (os2ip)
 import qualified Data.ByteArray             as BA
 import qualified Data.ByteString            as BS
 import Control.Monad.Fail
-import           GHC.List  ((!!))  
+import           Data.List  ((!!))  
 
 
 -- | Setup: Only once, independently of the number of OT messages *m*.
@@ -66,19 +66,14 @@ mChoose
      -> [(Integer, ECC.Point, Integer)]
      -> m [(Integer, ECC.Point, Integer)]
 
+-- | Call 'choose' 'm' times to create a list of three lists 
+-- | Return lists of private keys, responses and choice bit
 mChoose curve n sPubKey 0 accum = return accum
 mChoose curve n sPubKey m accum = do 
-  -- | Call 'choose' 'm' times to create a list of three lists 
   a <- choose curve n sPubKey
   b <- mChoose curve (n) sPubKey (m-1) accum
   let accum = a : b 
-  -- | Return lists of private keys, responses and choice bits
   return (accum)
-
--- | Unzip a list of three item lists to a tuple of three lists
-unzip3 :: Foldable t => t (a1, a2, a3) -> ([a1], [a2], [a3])
-unzip3 = foldr (\(a,b,c) ~(as,bs,cs) -> (a:as,b:bs,c:cs)) ([],[],[])
-
 
 -- | Sender's key derivation from his private key and receiver's response
 -- In parallel for all OT messages
@@ -96,8 +91,9 @@ mDeriveSenderKeys
   -> [ECC.Point] 
   -> ECC.Point  
   -> [[Integer]]
+
+-- | Fold together 'm' calls of 'deriveSenderKeys'  
 mDeriveSenderKeys curve n sPrivKey responses t = mDeriveSenderKeys' <$> responses
-  -- | Fold together 'm' calls of 'deriveSenderKeys'  
   where mDeriveSenderKeys' response = deriveSenderKeys curve n sPrivKey response t 
 
 
@@ -111,8 +107,9 @@ mDeriveReceiverKeys
   -> [Integer] 
   -> ECC.Point  
   -> [Integer]
+
+-- | Fold together 'm' calls of 'deriveReceiverKeys'
 mDeriveReceiverKeys curve rPrivKeys sPubKey = deriveReceiverKey'  <$> rPrivKeys
-  -- | Fold together 'm' calls of 'deriveReceiverKeys'
   where deriveReceiverKey' rPrivKey = deriveReceiverKey curve rPrivKey sPubKey
 
 hashPoint :: ECC.Curve -> ECC.Point -> Integer
