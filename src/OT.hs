@@ -22,7 +22,7 @@ import           Crypto.Number.Serialize    (os2ip)
 import qualified Data.ByteArray             as BA
 import qualified Data.ByteString            as BS
 import Control.Monad.Fail
-import           GHC.List  ((!!))  
+import           Data.List  ((!!))  
 
 
 -- | Setup: Only once, independently of the number of OT messages *m*.
