@@ -8,7 +8,7 @@ Oblivious Transfer (OT) is a cryptographic primitive in which a sender transfers
 The sender doesn't know which pieces of information have been transferred.
 
 1-out-of-2 OT
--------------
+=============
 
 Oblivious transfer is central to many of the constructions for secure multiparty computation.
 In its most basic form, the sender has two secret messages as inputs, _m<sub>0</sub>_ and _m<sub>1</sub>_; the receiver has a choice bit _c_ as input.
@@ -76,8 +76,28 @@ testOT curve n = do
 
   pure $ receiverKey == (senderKeys !! fromInteger c)
 ```
+k-out-of-N OT
+=============
 
-------------
+1-out-of-N oblivious transfer can be generalised one step further into
+k-out-of-N. This is very similar in structure to the methods above comprising
+the same 3 parts:
+
+**Setup**
+As above, Alice samples _a ∈ Z<sub>p</sub>_ and computes _A = aG_ and _T = aA_, where _G_ and _p_ are the generator and the order of the curve, respectively.
+She sends _A_ to Bob, who aborts if _A_ is not a valid point in the curve.
+
+**Choose**
+Bob takes his choices _c<sup>i</sup> ∈ Z<sub>n</sub>_, samples _b<sup>i</sup> ∈ Z<sub>p</sub>_ and replies _R<sup>i</sup> = c<sup>i</sup>A + b<sup>i</sup>G_. Alice aborts if _R<sup>i</sup>_ is not a valid point in the curve.
+
+**Key derivation**
+
+1. For all _e<sup>i</sup> ∈ Z<sub>n</sub>_, Alice computes _k<sub>e</sub><sup>i</sup> = aR<sup>i</sup> - e<sup>i</sup>T_. She now has a vector of vectors of keys _(k<sub>0</sub><sup>i</sup>, ..., k<sub>n-1</sub><sup>i</sup>)_.
+
+2. Bob computes _k<sub>R</sub><sup>i</sup> = b<sup>i</sup>A_.
+
+We can see that the key _k<sub>e</sub><sup>i</sup> = aR<sup>i</sup> - e<sup>i</sup>T = ab<sup>i</sup>G + (c<sup>i</sup> - e<sup>i</sup>)T_. If _e = c_, then _k<sub>c</sub><sup>i</sup> = ab<sup>i</sup>G = b<sup>i</sup>A = k<sub>R</sub><sup>i</sup>_.
+Therefore, _k<sub>R</sub><sup>i</sup> = k<sub>c</sub><sup>i</sup>_ if both parties are honest.
 
 **References**:
 

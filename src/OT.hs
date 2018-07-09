@@ -25,19 +25,6 @@ import Control.Monad.Fail
 import           GHC.List  ((!!))  
 
 
--- Conveniences to be removed
-curve :: ECC.Curve
-curve = ECC.getCurveByName ECC.SEC_p256k1
-
-g :: ECC.Point
-g = ECC.ecc_g $ ECC.common_curve curve
-
-testPoint1 :: ECC.Point
-testPoint1 = ECC.pointMul curve 4 g
-
-
-
-
 -- | Setup: Only once, independently of the number of OT messages *m*.
 setup :: (MonadRandom m, MonadFail m) => ECC.Curve -> m (Integer, ECC.Point, ECC.Point)
 setup curve = do
@@ -81,23 +68,16 @@ mChoose
 
 mChoose curve n sPubKey 0 accum = return accum
 mChoose curve n sPubKey m accum = do 
+  -- | Call 'choose' 'm' times to create a list of three lists 
   a <- choose curve n sPubKey
   b <- mChoose curve (n) sPubKey (m-1) accum
   let accum = a : b 
+  -- | Return lists of private keys, responses and choice bits
   return (accum)
 
+-- | Unzip a list of three item lists to a tuple of three lists
 unzip3 :: Foldable t => t (a1, a2, a3) -> ([a1], [a2], [a3])
 unzip3 = foldr (\(a,b,c) ~(as,bs,cs) -> (a:as,b:bs,c:cs)) ([],[],[])
-
-mDeriveSenderKeys
-  :: ECC.Curve
-  -> Integer 
-  -> Integer 
-  -> [ECC.Point] 
-  -> ECC.Point  
-  -> [[Integer]]
-mDeriveSenderKeys curve n sPrivKey responses t = mDeriveSenderKeys' <$> responses
-  where mDeriveSenderKeys' response = deriveSenderKeys curve n sPrivKey response t 
 
 
 -- | Sender's key derivation from his private key and receiver's response
@@ -108,6 +88,18 @@ deriveSenderKeys curve n sPrivKey response t = deriveSenderKey <$> [0..n-1]
     deriveSenderKey j = hashPoint curve (ECC.pointAdd curve yR (ECC.pointNegate curve (jT j)))
     yR = ECC.pointMul curve sPrivKey response
     jT j = ECC.pointMul curve j t
+
+mDeriveSenderKeys
+  :: ECC.Curve
+  -> Integer 
+  -> Integer 
+  -> [ECC.Point] 
+  -> ECC.Point  
+  -> [[Integer]]
+mDeriveSenderKeys curve n sPrivKey responses t = mDeriveSenderKeys' <$> responses
+  -- | Fold together 'm' calls of 'deriveSenderKeys'  
+  where mDeriveSenderKeys' response = deriveSenderKeys curve n sPrivKey response t 
+
 
 -- | Receiver's key derivation from his private key and sender's public key
 -- In parallel for all OT messages
@@ -120,6 +112,7 @@ mDeriveReceiverKeys
   -> ECC.Point  
   -> [Integer]
 mDeriveReceiverKeys curve rPrivKeys sPubKey = deriveReceiverKey'  <$> rPrivKeys
+  -- | Fold together 'm' calls of 'deriveReceiverKeys'
   where deriveReceiverKey' rPrivKey = deriveReceiverKey curve rPrivKey sPubKey
 
 hashPoint :: ECC.Curve -> ECC.Point -> Integer
