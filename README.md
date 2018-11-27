@@ -3,6 +3,7 @@
 </p>
 
 [![CircleCI](https://circleci.com/gh/adjoint-io/oblivious-transfer.svg?style=svg)](https://circleci.com/gh/adjoint-io/oblivious-transfer)
+[![Hackage](https://img.shields.io/hackage/v/oblivious-transfer.svg)](http://hackage.haskell.org/package/oblivious-transfer)
 
 Oblivious Transfer (OT) is a cryptographic primitive in which a sender transfers some of potentially many pieces of information to a receiver.
 The sender doesn't know which pieces of information have been transferred.
