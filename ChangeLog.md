@@ -1,3 +1,5 @@
 # Changelog for oblivious-transfer
 
-## Unreleased changes
+## 0.1
+
+* Initial release.
