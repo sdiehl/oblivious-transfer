@@ -18,7 +18,7 @@ import qualified Data.ByteString      as BS
 import           Data.ByteString.Lazy (fromStrict)
 import           Data.Curve
 import           Data.Digest.Pure.SHA (integerDigest, sha256)
-import           Data.Field.Galois    (PrimeField (..), toP, toP')
+import           Data.Field.Galois    (PrimeField (..))
 import           Data.List            ((!!))
 
 genKeys :: (MonadRandom m, Curve f c e q r) => m (r, Point f c e q r)
@@ -43,7 +43,7 @@ choose n sPubKey = do
   c <- getRandomR (0, n - 1)
   (rPrivKey, xB) <- genKeys
 
-  let cS = mul sPubKey c
+  let cS = mul sPubKey (fromInteger c)
   let response = add cS xB
 
   pure (rPrivKey, response, c)
@@ -72,7 +72,7 @@ deriveSenderKeys n sPrivKey response t = deriveSenderKey <$> [0..n-1]
  where
     deriveSenderKey j = hashPoint (add yR (inv (jT j)))
     yR = mul response sPrivKey
-    jT = mul t
+    jT = mul t . fromInteger
 
 
 -- | Fold 'm' calls of 'deriveSenderKeys'
