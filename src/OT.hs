@@ -21,14 +21,14 @@ import           Data.Digest.Pure.SHA (integerDigest, sha256)
 import           Data.Field.Galois    (PrimeField (..))
 import           Data.List            ((!!))
 
-genKeys :: (MonadRandom m, Curve f c e q r) => m (r, Point f c e q r)
+genKeys :: (Curve f c e q r, MonadRandom m) => m (r, Point f c e q r)
 genKeys = do
   sk <- getRandom
   let pk = mul gen sk
   return (sk, pk)
 
 -- | Setup: Only once, independently of the number of OT messages *m*.
-setup :: (MonadRandom m, Curve f c e q r) => m (r, Point f c e q r, Point f c e q r)
+setup :: (Curve f c e q r, MonadRandom m) => m (r, Point f c e q r, Point f c e q r)
 setup = do
   -- 1. Sender samples y <- Zp and computes S = yB and T = yS
   (sPrivKey, sPubKey) <- genKeys
@@ -37,7 +37,7 @@ setup = do
   pure (sPrivKey, sPubKey, t)
 
 -- | Choose: In parallel for all OT messages.
-choose :: (MonadRandom m, Curve f c e q r) => Integer -> Point f c e q r -> m (r, Point f c e q r, Integer)
+choose :: (Curve f c e q r, MonadRandom m) => Integer -> Point f c e q r -> m (r, Point f c e q r, Integer)
 choose n sPubKey = do
   -- 1. Receiver samples x <- Zp and computes Response
   c <- getRandomR (0, n - 1)
@@ -52,7 +52,7 @@ choose n sPubKey = do
 -- | Call 'choose' 'm' times to create a list of three lists
 -- Return lists of private keys, responses and choice bit
 mChoose
-  :: (Eq t, Num t, MonadRandom m, Curve f c e q r)
+  :: (Eq t, Num t, Curve f c e q r, MonadRandom m)
      => Integer
      -> Point f c e q r
      -> t
