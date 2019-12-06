@@ -9,120 +9,103 @@ module OT
 , mChoose
 ) where
 
-import Protolude hiding (hash)
+import           Protolude            hiding (fromStrict, hash)
 
-import           Crypto.Hash
-import           Crypto.Random.Types (MonadRandom)
-import qualified Crypto.PubKey.ECC.Prim     as ECC
-import qualified Crypto.PubKey.ECC.Types    as ECC
-import qualified Crypto.PubKey.ECC.Generate as ECC
-import           Crypto.Number.Generate     (generateMax)
-import qualified Crypto.PubKey.ECC.ECDSA    as ECDSA
-import           Crypto.Number.Serialize    (os2ip)
-import qualified Data.ByteArray             as BA
-import qualified Data.ByteString            as BS
-import Control.Monad.Fail
-import           Data.List  ((!!))  
+import           Control.Monad.Fail
+import           Control.Monad.Random (MonadRandom, getRandom, getRandomR)
+import qualified Data.ByteArray       as BA
+import qualified Data.ByteString      as BS
+import           Data.ByteString.Lazy (fromStrict)
+import           Data.Curve
+import           Data.Digest.Pure.SHA (integerDigest, sha256)
+import           Data.Field.Galois    (PrimeField (..), toP, toP')
+import           Data.List            ((!!))
 
+genKeys :: (MonadRandom m, Curve f c e q r) => m (r, Point f c e q r)
+genKeys = do
+  sk <- getRandom
+  let pk = mul gen sk
+  return (sk, pk)
 
 -- | Setup: Only once, independently of the number of OT messages *m*.
-setup :: (MonadRandom m, MonadFail m) => ECC.Curve -> m (Integer, ECC.Point, ECC.Point)
-setup curve = do
+setup :: (MonadRandom m, Curve f c e q r) => m (r, Point f c e q r, Point f c e q r)
+setup = do
   -- 1. Sender samples y <- Zp and computes S = yB and T = yS
-  (sPubKey, sPrivKey) <- bimap ECDSA.public_q ECDSA.private_d <$> ECC.generate curve
-  let t = ECC.pointMul curve sPrivKey sPubKey
-
-  -- 2. S sends S to R, who aborts if S doesn't belong to G
-  unless (ECC.isPointValid curve sPubKey) $
-    fail "Invalid sPubKey from sender"
+  (sPrivKey, sPubKey) <- genKeys
+  let t = mul sPubKey sPrivKey
 
   pure (sPrivKey, sPubKey, t)
 
-
 -- | Choose: In parallel for all OT messages.
-choose :: (MonadRandom m, MonadFail m) => ECC.Curve -> Integer -> ECC.Point -> m (Integer, ECC.Point, Integer)
-choose curve n sPubKey = do
+choose :: (MonadRandom m, Curve f c e q r) => Integer -> Point f c e q r -> m (r, Point f c e q r, Integer)
+choose n sPubKey = do
   -- 1. Receiver samples x <- Zp and computes Response
-  c <- generateMax (n - 1)
-  rPrivKey <- ECDSA.private_d . snd <$> ECC.generate curve
+  c <- getRandomR (0, n - 1)
+  (rPrivKey, xB) <- genKeys
 
-  let cS = ECC.pointMul curve c sPubKey
-  let xB = ECC.pointBaseMul curve rPrivKey
-  let response = ECC.pointAdd curve cS xB
-
-  -- 2. Fail if the response is not a valid point in the curve
-  unless (ECC.isPointValid curve response) $
-    fail "Invalid response from verifier"
+  let cS = mul sPubKey c
+  let response = add cS xB
 
   pure (rPrivKey, response, c)
 
 
+-- | Call 'choose' 'm' times to create a list of three lists
+-- Return lists of private keys, responses and choice bit
 mChoose
-  :: (Eq t, Num t, MonadRandom m, MonadFail m) =>
-     ECC.Curve
-     -> Integer
-     -> ECC.Point
+  :: (Eq t, Num t, MonadRandom m, Curve f c e q r)
+     => Integer
+     -> Point f c e q r
      -> t
-     -> [(Integer, ECC.Point, Integer)]
-     -> m [(Integer, ECC.Point, Integer)]
-
--- | Call 'choose' 'm' times to create a list of three lists 
--- | Return lists of private keys, responses and choice bit
-mChoose curve n sPubKey 0 accum = return accum
-mChoose curve n sPubKey m accum = do 
-  a <- choose curve n sPubKey
-  b <- mChoose curve (n) sPubKey (m-1) accum
-  let accum = a : b 
-  return (accum)
+     -> [(r, Point f c e q r, Integer)]
+     -> m [(r, Point f c e q r, Integer)]
+mChoose n sPubKey 0 accum = return accum
+mChoose n sPubKey m accum = do
+  a <- choose n sPubKey
+  b <- mChoose n sPubKey (m-1) accum
+  let accum = a : b
+  return accum
 
 -- | Sender's key derivation from his private key and receiver's response
 -- In parallel for all OT messages
-deriveSenderKeys :: ECC.Curve -> Integer -> Integer -> ECC.Point -> ECC.Point -> [Integer]
-deriveSenderKeys curve n sPrivKey response t = deriveSenderKey <$> [0..n-1]
+deriveSenderKeys :: Curve f c e q r => Integer -> r -> Point f c e q r -> Point f c e q r -> [r]
+deriveSenderKeys n sPrivKey response t = deriveSenderKey <$> [0..n-1]
  where
-    deriveSenderKey j = hashPoint curve (ECC.pointAdd curve yR (ECC.pointNegate curve (jT j)))
-    yR = ECC.pointMul curve sPrivKey response
-    jT j = ECC.pointMul curve j t
+    deriveSenderKey j = hashPoint (add yR (inv (jT j)))
+    yR = mul response sPrivKey
+    jT = mul t
 
+
+-- | Fold 'm' calls of 'deriveSenderKeys'
 mDeriveSenderKeys
-  :: ECC.Curve
-  -> Integer 
-  -> Integer 
-  -> [ECC.Point] 
-  -> ECC.Point  
-  -> [[Integer]]
-
--- | Fold together 'm' calls of 'deriveSenderKeys'  
-mDeriveSenderKeys curve n sPrivKey responses t = mDeriveSenderKeys' <$> responses
-  where mDeriveSenderKeys' response = deriveSenderKeys curve n sPrivKey response t 
+  :: Curve f c e q r
+  => Integer
+  -> r
+  -> [Point f c e q r]
+  -> Point f c e q r
+  -> [[r]]
+mDeriveSenderKeys n sPrivKey responses t = mDeriveSenderKeys' <$> responses
+  where mDeriveSenderKeys' response = deriveSenderKeys n sPrivKey response t
 
 
 -- | Receiver's key derivation from his private key and sender's public key
 -- In parallel for all OT messages
-deriveReceiverKey :: ECC.Curve -> Integer -> ECC.Point -> Integer
-deriveReceiverKey curve rPrivKey sPubKey = hashPoint curve (ECC.pointMul curve rPrivKey sPubKey)
+deriveReceiverKey :: Curve f c e q r => r -> Point f c e q r -> r
+deriveReceiverKey rPrivKey sPubKey = hashPoint (mul sPubKey rPrivKey)
 
+
+-- | Fold 'm' calls of 'deriveReceiverKeys'
 mDeriveReceiverKeys
-  :: ECC.Curve
-  -> [Integer] 
-  -> ECC.Point  
-  -> [Integer]
+  :: Curve f c e q r
+  => [r]
+  -> Point f c e q r
+  -> [r]
+mDeriveReceiverKeys rPrivKeys sPubKey = deriveReceiverKey'  <$> rPrivKeys
+  where deriveReceiverKey' rPrivKey = deriveReceiverKey rPrivKey sPubKey
 
--- | Fold together 'm' calls of 'deriveReceiverKeys'
-mDeriveReceiverKeys curve rPrivKeys sPubKey = deriveReceiverKey'  <$> rPrivKeys
-  where deriveReceiverKey' rPrivKey = deriveReceiverKey curve rPrivKey sPubKey
+hashPoint :: Curve f c e q r => Point f c e q r -> r
+hashPoint p | p == id   = oracle ""
+            | otherwise = oracle (show p)
 
-hashPoint :: ECC.Curve -> ECC.Point -> Integer
-hashPoint curve ECC.PointO      = oracle curve ""
-hashPoint curve (ECC.Point x y) = oracle curve (show x <> show y)
-
--- | Outputs unpredictable but deterministic random values
-oracle :: ECC.Curve -> BS.ByteString -> Integer
-oracle curve x = os2ip (sha256 x) `mod` ecc_n
-  where
-    ecc_n = ECC.ecc_n (ECC.common_curve curve)
-
--- | Secure cryptographic hash function
-sha256 :: BS.ByteString -> BS.ByteString
-sha256 bs = BA.convert (hash bs :: Digest SHA3_256)
-
+-- | Output unpredictable but deterministic random values
+oracle :: PrimeField f => ByteString -> f
+oracle = fromInteger . integerDigest . sha256 . fromStrict
