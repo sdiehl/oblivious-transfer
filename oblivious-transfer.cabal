@@ -1,0 +1,102 @@
+cabal-version:      1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 539b021a4e9800e275c7cd65e9b6506139f6c5b357a24108060df50e84cd5514
+
+name:               oblivious-transfer
+version:            0.1.0
+synopsis:
+  An implementation of the Oblivious Transfer protocol in Haskell
+
+description:
+  Please see the README on GitHub at <https://github.com/adjoint-io/oblivious-transfer#readme>
+
+category:           Cryptography
+homepage:           https://github.com/adjoint-io/oblivious-transfer#readme
+bug-reports:        https://github.com/adjoint-io/oblivious-transfer/issues
+maintainer:         Adjoint Inc (info@adjoint.io)
+license:            Apache
+license-file:       LICENSE
+build-type:         Simple
+extra-source-files:
+  README.md
+  ChangeLog.md
+
+source-repository head
+  type:     git
+  location: https://github.com/adjoint-io/oblivious-transfer
+
+library
+  exposed-modules:    OT
+  other-modules:      Paths_oblivious_transfer
+  hs-source-dirs:     src
+  default-extensions:
+    NoImplicitPrelude
+    FlexibleInstances
+    LambdaCase
+    OverloadedStrings
+    RecordWildCards
+
+  ghc-options:
+    -fwarn-tabs -fwarn-incomplete-patterns
+    -fwarn-incomplete-record-updates -fwarn-redundant-constraints
+    -fwarn-implicit-prelude -fwarn-overflowed-literals -fwarn-orphans
+    -fwarn-identities -fwarn-dodgy-exports -fwarn-dodgy-imports
+    -fwarn-duplicate-exports -fwarn-overlapping-patterns
+    -fwarn-missing-fields -fwarn-missing-methods
+    -fwarn-missing-signatures -fwarn-noncanonical-monad-instances
+    -fwarn-unused-pattern-binds -fwarn-unused-type-patterns
+    -fwarn-unrecognised-pragmas -fwarn-wrong-do-bind
+    -fno-warn-name-shadowing -fno-warn-unused-binds
+    -fno-warn-unused-matches -fno-warn-unused-do-bind
+
+  build-depends:
+      base            >=4.7    && <5
+    , bytestring      >=0.10.8 && <0.11
+    , elliptic-curve  >=0.3.0  && <0.4
+    , galois-field    >=1.0    && <1.1
+    , memory          >=0.14.0 && <0.16
+    , MonadRandom     >=0.5.1  && <0.6
+    , protolude       >=0.2.3  && <0.3
+    , random          >=1.1    && <1.2
+    , SHA             >=1.6.4  && <1.7
+
+  default-language:   Haskell2010
+
+test-suite oblivious-transfer-test
+  type:               exitcode-stdio-1.0
+  main-is:            Driver.hs
+  other-modules:
+    Paths_oblivious_transfer
+    TestOT
+
+  hs-source-dirs:     test
+  default-extensions:
+    NoImplicitPrelude
+    FlexibleInstances
+    LambdaCase
+    OverloadedStrings
+    RecordWildCards
+
+  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base                >=4.7    && <5
+    , bytestring          >=0.10.8 && <0.11
+    , elliptic-curve      >=0.3.0  && <0.4
+    , galois-field        >=1.0    && <1.1
+    , memory              >=0.14.0 && <0.16
+    , MonadRandom         >=0.5.1  && <0.6
+    , oblivious-transfer
+    , protolude           >=0.2.3  && <0.3
+    , QuickCheck          >=2.12   && <2.13
+    , random              >=1.1    && <1.2
+    , SHA                 >=1.6.4  && <1.7
+    , tasty               >=1.2    && <1.3
+    , tasty-discover      >=4.1    && <4.3
+    , tasty-hunit         >=0.10   && <0.11
+    , tasty-quickcheck    >=0.10   && <0.11
+
+  default-language:   Haskell2010
